@@ -1,0 +1,12 @@
+[
+  {
+    "nombre": "Luis",
+    "puntaje": 95,
+    "tiempo": "03:12"
+  },
+  {
+	"nombre": "Ana",
+	"puntaje": 150,
+	"tiempo": "02:34"
+  }
+]
