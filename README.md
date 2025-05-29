@@ -1,2 +1,2 @@
-# Juego-Sopa-De-Letras
+# Juego Sopa De Letras
 Videjuego sopa de letras
