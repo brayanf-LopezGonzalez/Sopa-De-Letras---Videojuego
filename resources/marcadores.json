@@ -1,12 +1,1 @@
-[
-  {
-    "nombre": "Luis",
-    "puntaje": 95,
-    "tiempo": "03:12"
-  },
-  {
-	"nombre": "Ana",
-	"puntaje": 150,
-	"tiempo": "02:34"
-  }
-]
+[{"nombre":"Luis","puntaje":95,"tiempo":"03:12"},{"nombre":"Ana","puntaje":150,"tiempo":"02:34"},{"nombre":"asdasd","puntaje":0,"tiempo":"00:03"},{"nombre":"asd","puntaje":0,"tiempo":"00:20"},{"nombre":"asdthgfhj","puntaje":0,"tiempo":"00:12"}]
