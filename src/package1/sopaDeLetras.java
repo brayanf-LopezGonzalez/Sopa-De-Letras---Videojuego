@@ -3,6 +3,9 @@ package package1;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.awt.geom.Path2D;
 import java.io.BufferedReader;
 import java.io.File;
@@ -13,8 +16,11 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.io.FileWriter;
 import java.io.Reader;
 import java.io.Writer;
@@ -40,13 +46,22 @@ public class sopaDeLetras{
     private static int segundosTranscurridos = 0;
     private static JLabel lblTiempo;
     private static int corazones = 3;
+    private static int puntuacion = 0;
+    private static JLabel lblPuntaje;
+    private static String nombreJugadorActual;
+    private static JPanel panelCorazones;
+    private static boolean cronometroIniciado = false;
+    
+    private static Point puntoInicioSeleccion = null;
+    private static Point puntoFinSeleccion = null;
+    private static Rectangle areaSeleccion = null;
     
     public static final String[] palabras = {
     	    "gato", "perro", "casa", "arbol", "nube", "luz", "sol", "luna", "mar", "cielo",
     	    "estrella", "rio", "montana", "flor", "hoja", "roca", "viento", "fuego", "agua", "tierra",
     	    "bosque", "nieve", "hielo", "lluvia", "trueno", "relampago", "noche", "dia", "tarde", "amanecer",
     	    "atardecer", "invierno", "verano", "primavera", "otono", "camino", "sendero", "puente", "playa", "arena",
-    	    "barco", "pez", "pajaro", "abeja", "mariposa", "tigre", "leon", "mono", "zorro", "serpiente",
+    	    "barco", "pez", "pajaro", "abeja", "itzel", "mariposa", "tigre", "leon", "mono", "zorro", "serpiente",
     	    "caballo", "rana", "raton", "murcielago", "elefante", "jirafa", "ballena", "delfin", "pulpo", "cangrejo",
     	    "piedra", "tronco", "copa", "vino", "queso", "pan", "miel", "azucar", "sal", "pimienta",
     	    "fresa", "manzana", "pera", "platano", "uva", "naranja", "limon", "melocoton", "sandia", "melon",
@@ -54,12 +69,28 @@ public class sopaDeLetras{
     	    "libro", "lapiz", "hoja", "cuaderno", "mesa", "silla", "puerta", "ventana", "cortina", "alfombra"
     };
     
+    private static final int[][] DIRECCIONES = {
+    	    {0, 1},   // derecha
+    	    {0, -1},  // izquierda
+    	    {1, 0},   // abajo
+    	    {-1, 0},  // arriba
+    	    {1, 1},   // diagonal abajo derecha
+    	    {-1, -1}, // diagonal arriba izquierda
+    	    {-1, 1},  // diagonal arriba derecha
+    	    {1, -1}   // diagonal abajo izquierda
+    	};
+    
     public static final int tamanoTablero = 12;
     private static char[][] tablero = new char[tamanoTablero][tamanoTablero];
     private static JButton[][] botonesTablero;
     private static List<String> palabrasNivelActual;
     private static List<JLabel> etiquetasPalabras = new ArrayList<>();
-
+    
+    private static boolean seleccionando = false;
+    private static Set<Point> puntosSeleccionados = new HashSet<>();
+    private static List<JLabel> etiquetasSeleccionadas = new ArrayList<>();
+    private static final Set<JLabel> etiquetasCorrectas = new HashSet<>();
+    
     public static void main(String[] args) {
         frame = new JFrame("Sopa de Letras");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -190,6 +221,7 @@ public class sopaDeLetras{
 	    }
 	}
 	
+	
 	private static void mostrarMarcadores() {
 		
 	    List<Jugador> jugadores = GestorMarcadores.cargarJugadores();
@@ -298,12 +330,13 @@ public class sopaDeLetras{
 	    }
 
 	    public boolean sonando() {
-	    	
 	        return clip != null && clip.isRunning();
 	    }
 	}
 	
 	private static void panelJuego(String nombreJugador) {
+		
+		nombreJugadorActual = nombreJugador;
 		
         JPanel panelJuego = new JPanel(new BorderLayout());
         panelJuego.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
@@ -312,7 +345,7 @@ public class sopaDeLetras{
         JPanel panelSuperior = new JPanel(new BorderLayout());
         panelSuperior.setOpaque(false);
 
-        JPanel panelCorazones = new JPanel();
+        panelCorazones = new JPanel();
         panelCorazones.setOpaque(false);
         panelCorazones.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 10));
 
@@ -328,20 +361,20 @@ public class sopaDeLetras{
                 panelCorazones.add(lblError);
             }
         }
-
+        actualizarCorazones();
         panelSuperior.add(panelCorazones, BorderLayout.WEST);
 
         JPanel panelDerecho = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
         panelDerecho.setOpaque(false);
 
-        lblTiempo = new JLabel("Tiempo: 00:00");
+        lblTiempo = new JLabel("Tiempo: " + puntuacion);
         lblTiempo.setFont(new Font("Arial", Font.PLAIN, 18));
         lblTiempo.setForeground(Color.BLACK);
 
         JLabel lblNombre = new JLabel("Jugador: " + nombreJugador);
         lblNombre.setFont(new Font("Arial", Font.BOLD, 18));
 
-        JLabel lblPuntaje = new JLabel("Puntaje: 0");
+        lblPuntaje = new JLabel("Puntaje: " + puntuacion);
         lblPuntaje.setFont(new Font("Arial", Font.BOLD, 18));
 
         panelDerecho.add(lblTiempo);
@@ -359,28 +392,36 @@ public class sopaDeLetras{
         
         etiquetasPalabras.clear();
         
-        JLabel tituloPalabras = new JLabel("BUSCA:");
-        tituloPalabras.setFont(new Font("Arial", Font.BOLD, 14));
-        tituloPalabras.setAlignmentX(Component.CENTER_ALIGNMENT);
-        tituloPalabras.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
-        panelPalabras.add(tituloPalabras);
-
-        JPanel panelPalabrasGrid = new JPanel(new GridLayout(0, 2, 10, 5));
-        panelPalabrasGrid.setBackground(new Color(240, 240, 240));
-        panelPalabrasGrid.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        palabrasNivelActual = new ArrayList<>();
         
-        palabrasNivelActual = Arrays.asList(Arrays.copyOfRange(palabras, 0, 10));
-
-        for (String palabra : palabrasNivelActual) {
-            JLabel lbl = new JLabel(palabra.toUpperCase());
-            lbl.setFont(new Font("Arial", Font.PLAIN, 14));
-            lbl.setForeground(Color.BLUE.darker());
-            lbl.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 3));
-            etiquetasPalabras.add(lbl);
-            panelPalabrasGrid.add(lbl);
+        for (int i = 0; i < palabras.length; i++) {
+            palabras[i] = palabras[i].toUpperCase();
         }
         
-        panelPalabras.add(panelPalabrasGrid);
+        insertarPalabrasEnTablero();
+        
+        JLabel tituloPalabras = new JLabel("BUSCA:");
+        tituloPalabras.setFont(new Font("Arial", Font.BOLD, 15));
+        tituloPalabras.setAlignmentX(Component.CENTER_ALIGNMENT);
+        tituloPalabras.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+        tituloPalabras.setPreferredSize(new Dimension(150, 25));
+        tituloPalabras.setMaximumSize(new Dimension(150, 25));
+        panelPalabras.add(tituloPalabras);
+
+        for (String palabra : palabrasNivelActual) {
+        	
+            JLabel etiqueta = new JLabel("<html><div style='width:150px;'>" + palabra + "</div></html>");
+            etiqueta.setFont(new Font("Arial", Font.PLAIN, 16));
+            etiqueta.setAlignmentX(Component.LEFT_ALIGNMENT);
+            etiqueta.setMaximumSize(new Dimension(150, 30));
+            
+            etiquetasPalabras.add(etiqueta);
+            
+            panelPalabras.add(etiqueta);
+        }
+        
+        panelPalabras.revalidate();
+        panelPalabras.repaint();
 
         JPanel panelTablero = new JPanel(new GridLayout(tamanoTablero, tamanoTablero, 1, 1));
         panelTablero.setBackground(Color.BLACK);
@@ -390,30 +431,65 @@ public class sopaDeLetras{
         int altoTablero = tamanoTablero * tamanoCelda;
         panelTablero.setPreferredSize(new Dimension(anchoTablero, altoTablero));
 
-        botonesTablero = new JButton[tamanoTablero][tamanoTablero];
-        llenarTableroConLetras();
-
         for (int fila = 0; fila < tamanoTablero; fila++) {
             for (int col = 0; col < tamanoTablero; col++) {
-                JButton btn = new JButton(String.valueOf(tablero[fila][col]));
-                btn.setFont(new Font("Arial", Font.BOLD, 14));
-                btn.setForeground(Color.DARK_GRAY);
-                btn.setBackground(Color.WHITE);
-                btn.setFocusable(false);
-                btn.setMargin(new Insets(0, 0, 0, 0));
-                btn.setPreferredSize(new Dimension(tamanoCelda, tamanoCelda));
-                botonesTablero[fila][col] = btn;
-                panelTablero.add(btn);
+                JLabel lbl = new JLabel("" + tablero[fila][col], SwingConstants.CENTER);
+                lbl.setOpaque(true);
+                lbl.setBackground(Color.WHITE);
+                lbl.setFont(new Font("Arial", Font.BOLD, 20));
+                lbl.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+                lbl.putClientProperty("fila", fila);
+                lbl.putClientProperty("col", col);
+
+                panelTablero.add(lbl);
             }
         }
         
+        panelTablero.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                puntoInicioSeleccion = e.getPoint();
+                puntoFinSeleccion = puntoInicioSeleccion;
+                areaSeleccion = new Rectangle();
+                panelTablero.repaint();
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                try {
+                	puntoFinSeleccion = e.getPoint();
+                    calcularAreaSeleccion();
+                    seleccionarLetrasEnLinea(panelTablero);
+                    areaSeleccion = null;
+                    verificarPalabraSeleccionada();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(frame, "Error: " + ex.getMessage());
+                }
+            }
+        });
+
+        panelTablero.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+            	try {
+                    puntoFinSeleccion = e.getPoint();
+                    calcularAreaSeleccion();
+                    panelTablero.repaint();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(frame, "Error: " + ex.getMessage());
+                }
+            }
+        });
+ 
         JPanel panelInferior = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         panelInferior.setOpaque(false);
         
         JButton btnRegresar = new JButton("Regresar al Menu");
         disenoBotones(btnRegresar);
         btnRegresar.addActionListener(e -> {
-            guardarDatosJugador(nombreJugador);
+            guardarDatosJugador(nombreJugadorActual);
             mostrarMenu();
         });
         
@@ -427,7 +503,10 @@ public class sopaDeLetras{
         frame.setMinimumSize(new Dimension(800, 600));
         frame.pack();
 
-        iniciarTemporizador();
+        if (!cronometroIniciado) {
+            iniciarTemporizador();
+            cronometroIniciado = true;
+        }
 
         frame.getContentPane().removeAll();
         frame.add(panelJuego);
@@ -449,25 +528,6 @@ public class sopaDeLetras{
 	    cronometro.start();
 	}
 	
-	private static void llenarTableroConLetras() {
-        Random rand = new Random();
-
-        for (int i = 0; i < tamanoTablero; i++) {
-            for (int j = 0; j < tamanoTablero; j++) {
-                tablero[i][j] = (char) ('A' + rand.nextInt(26));
-            }
-        }
-
-        for (String palabra : palabrasNivelActual) {
-            int fila = rand.nextInt(tamanoTablero);
-            int colInicio = rand.nextInt(tamanoTablero - palabra.length());
-
-            for (int i = 0; i < palabra.length(); i++) {
-                tablero[fila][colInicio + i] = Character.toUpperCase(palabra.charAt(i));
-            }
-        }
-    }
-	
 	private static void guardarDatosJugador(String nombreJugador) {
 
 	    if (cronometro != null) {
@@ -484,5 +544,251 @@ public class sopaDeLetras{
 
 	    JOptionPane.showMessageDialog(frame, "Datos guardados:\n" + "Nombre: " + nombreJugador + "\n" + "Puntuacion: " + puntuacion + "\n" + "Tiempo: " + tiempoJugado, "Regresando al menu",JOptionPane.INFORMATION_MESSAGE);
 	}
-	 
+	
+	private static boolean colocarPalabra(char[][] tablero, String palabra, int fila, int col, int[] direccion) {
+	    int dx = direccion[0];
+	    int dy = direccion[1];
+	    int len = palabra.length();
+
+	    int endRow = fila + dx * (len - 1);
+	    int endCol = col + dy * (len - 1);
+
+	    if (endRow < 0 || endRow >= tamanoTablero || endCol < 0 || endCol >= tamanoTablero) {
+	        return false;
+	    }
+
+	    for (int i = 0; i < len; i++) {
+	        int r = fila + dx * i;
+	        int c = col + dy * i;
+	        if (tablero[r][c] != '\0' && tablero[r][c] != palabra.charAt(i)) {
+	            return false;
+	        }
+	    }
+
+	    for (int i = 0; i < len; i++) {
+	        int r = fila + dx * i;
+	        int c = col + dy * i;
+	        tablero[r][c] = palabra.charAt(i);
+	    }
+
+	    return true;
+	}
+
+	private static void insertarPalabrasEnTablero() {
+	    tablero = new char[tamanoTablero][tamanoTablero];
+	    palabrasNivelActual = new ArrayList<>();
+
+	    Random random = new Random();
+	    List<String> listaPalabras = new ArrayList<>(Arrays.asList(palabras));
+	    Collections.shuffle(listaPalabras);
+
+	    int palabrasColocadas = 0;
+	    int maxPalabras = 10; 
+
+	    for (String palabra : listaPalabras) {
+	        palabra = palabra.toUpperCase();
+	        boolean colocada = false;
+	        int intentos = 0;
+
+	        while (!colocada && intentos < 100) {
+	            int[] direccion = DIRECCIONES[random.nextInt(DIRECCIONES.length)];
+	            int fila = random.nextInt(tamanoTablero);
+	            int col = random.nextInt(tamanoTablero);
+
+	            if (colocarPalabra(tablero, palabra, fila, col, direccion)) {
+	                colocada = true;
+	                palabrasNivelActual.add(palabra);
+	                palabrasColocadas++;
+	            }
+
+	            intentos++;
+	        }
+
+	        if (palabrasColocadas >= maxPalabras) break;
+	    }
+
+	    for (int fila = 0; fila < tamanoTablero; fila++) {
+	        for (int col = 0; col < tamanoTablero; col++) {
+	            if (tablero[fila][col] == '\0') {
+	                tablero[fila][col] = (char) ('A' + random.nextInt(26));
+	            }
+	        }
+	    }
+	}
+	
+	private static void resetearSeleccion() {
+	    for (JLabel lbl : etiquetasSeleccionadas) {
+	        if (!etiquetasCorrectas.contains(lbl)) {
+	            lbl.setBackground(Color.WHITE);
+	        }
+	    }
+	    etiquetasSeleccionadas.clear();
+	    puntosSeleccionados.clear();
+	}
+	
+	
+	private static void calcularAreaSeleccion() {
+	    int x = Math.min(puntoInicioSeleccion.x, puntoFinSeleccion.x);
+	    int y = Math.min(puntoInicioSeleccion.y, puntoFinSeleccion.y);
+	    int ancho = Math.abs(puntoInicioSeleccion.x - puntoFinSeleccion.x);
+	    int alto = Math.abs(puntoInicioSeleccion.y - puntoFinSeleccion.y);
+	    areaSeleccion.setBounds(x, y, ancho, alto);
+	}
+	
+	
+	private static void seleccionarLetrasEnLinea(JPanel panelTablero) {
+	    resetearSeleccion();
+
+	    Point start = puntoInicioSeleccion;
+	    Point end = puntoFinSeleccion;
+	    
+	    if (start == null || end == null) return;
+
+	    Component startComp = panelTablero.getComponentAt(start);
+	    Component endComp = panelTablero.getComponentAt(end);
+
+	    if (!(startComp instanceof JLabel) || !(endComp instanceof JLabel)) return;
+
+	    int filaInicio = (int) ((JLabel) startComp).getClientProperty("fila");
+	    int colInicio = (int) ((JLabel) startComp).getClientProperty("col");
+	    int filaFin = (int) ((JLabel) endComp).getClientProperty("fila");
+	    int colFin = (int) ((JLabel) endComp).getClientProperty("col");
+
+	    int dx = Integer.compare(filaFin, filaInicio);
+	    int dy = Integer.compare(colFin, colInicio);
+
+	    int fila = filaInicio;
+	    int col = colInicio;
+	    
+	    if (filaInicio == filaFin && colInicio == colFin) return;
+
+	    do {
+	        if (!dentroDelTablero(fila, col)) {
+	            break;
+	        }
+
+	        for (Component comp : panelTablero.getComponents()) {
+	            if (comp instanceof JLabel) {
+	                JLabel lbl = (JLabel) comp;
+	                int f = (int) lbl.getClientProperty("fila");
+	                int c = (int) lbl.getClientProperty("col");
+
+	                if (f == fila && c == col) {
+	                    etiquetasSeleccionadas.add(lbl);
+	                    puntosSeleccionados.add(new Point(f, c));
+	                    lbl.setBackground(Color.YELLOW);
+	                    break;
+	                }
+	            }
+	        }
+
+	        if (fila == filaFin && col == colFin) {
+	            break;
+	        }
+
+	        fila += dx;
+	        col += dy;
+
+	    } while (true);
+	}
+	
+	private static void verificarPalabraSeleccionada() {
+	    if (etiquetasSeleccionadas.isEmpty()) return;
+
+	    StringBuilder palabraSeleccionada = new StringBuilder();
+	    for (JLabel lbl : etiquetasSeleccionadas) {
+	        palabraSeleccionada.append(lbl.getText());
+	    }
+
+	    String palabra = palabraSeleccionada.toString();
+
+	    if (palabrasNivelActual.contains(palabra)) {
+
+	        for (JLabel lbl : etiquetasSeleccionadas) {
+	            lbl.setBackground(new Color(144, 238, 144));
+	            etiquetasCorrectas.add(lbl);
+	        }
+
+	        for (JLabel lblPalabra : etiquetasPalabras) {
+	            if (lblPalabra.getText().toUpperCase().contains(palabra)) {
+	                lblPalabra.setForeground(Color.GRAY);
+	                lblPalabra.setFont(lblPalabra.getFont().deriveFont(Font.ITALIC));
+	            }
+	        }
+
+	        puntuacion += 10;
+	        lblPuntaje.setText("Puntaje: " + puntuacion);
+	        palabrasNivelActual.remove(palabra);
+	        
+	        if (palabrasNivelActual.isEmpty()) {
+	            int opcion = JOptionPane.showConfirmDialog(frame,
+	                "¡Felicidades! Completaste este nivel.\n¿Deseas pasar al siguiente nivel?",
+	                "Nivel completado",
+	                JOptionPane.YES_NO_OPTION);
+
+	            if (opcion == JOptionPane.YES_OPTION) {
+
+	                iniciarSiguienteNivel();
+	            } else {
+	            	
+	                guardarDatosJugador(nombreJugadorActual);
+	                mostrarMenu();
+	            }
+	        }
+	        
+	        
+	    } else {
+	        for (JLabel lbl : etiquetasSeleccionadas) {
+	            lbl.setBackground(new Color(255, 102, 102));
+	        }
+
+	        corazones--;
+	        actualizarCorazones();
+
+	        if (corazones <= 0) {
+	        	cronometro.stop();
+	            JOptionPane.showMessageDialog(frame, "Has perdido todas las vidas", "Juego terminado", JOptionPane.INFORMATION_MESSAGE);
+	            guardarDatosJugador(nombreJugadorActual);
+	            mostrarMenu();
+	            return;
+	        }
+	    }
+
+	    Timer timer = new Timer(500, e -> {
+	        resetearSeleccion();
+	    });
+	    timer.setRepeats(false);
+	    timer.start();
+	}
+	
+	private static void iniciarSiguienteNivel() {
+	    etiquetasCorrectas.clear();
+	    etiquetasSeleccionadas.clear();
+	    puntosSeleccionados.clear();
+
+	    panelJuego(nombreJugadorActual);
+	}
+	
+	private static void actualizarCorazones() {
+	    panelCorazones.removeAll(); // Limpia antes de dibujar
+	    for (int i = 0; i < 3; i++) {
+	        String ruta = (i < corazones) ? "images/corazonLleno.png" : "images/corazonVacio.png";
+	        try {
+	            ImageIcon icono = new ImageIcon(ruta);
+	            Image imagen = icono.getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH);
+	            JLabel lblCorazon = new JLabel(new ImageIcon(imagen));
+	            panelCorazones.add(lblCorazon);
+	        } catch (Exception e) {
+	            JLabel lblError = new JLabel("?");
+	            panelCorazones.add(lblError);
+	        }
+	    }
+	    panelCorazones.revalidate();
+	    panelCorazones.repaint();
+	}
+	
+	private static boolean dentroDelTablero(int fila, int col) {
+	    return fila >= 0 && fila < tamanoTablero && col >= 0 && col < tamanoTablero;
+	}
+	
 }
