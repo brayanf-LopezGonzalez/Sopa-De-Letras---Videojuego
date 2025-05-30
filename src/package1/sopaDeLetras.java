@@ -42,6 +42,8 @@ public class sopaDeLetras{
     private static JPanel panelPrincipal;
     private static boolean musicaActivada = true;
     private static Sonido musicaFondo;
+    private static Clip clipSonido = null;
+    private static boolean sonidoActivado = true;
     static Timer cronometro;
     private static int segundosTranscurridos = 0;
     private static JLabel lblTiempo;
@@ -149,9 +151,18 @@ public class sopaDeLetras{
             }
         });
         
+        JCheckBox chkSonido = new JCheckBox("Efectos de sonido");
+        chkSonido.setSelected(sonidoActivado);
+        chkSonido.setOpaque(false);
+        chkSonido.addActionListener(e -> {
+            sonidoActivado = chkSonido.isSelected();
+        });
+        
         JPanel panelMusica = new JPanel();
         panelMusica.setOpaque(false);
-        panelMusica.add(toggleMusica);
+        panelMusica.setLayout(new BorderLayout());
+        panelMusica.add(toggleMusica, BorderLayout.WEST);
+        panelMusica.add(chkSonido, BorderLayout.EAST);
         panelPrincipal.add(panelMusica, BorderLayout.SOUTH);
 
         frame.getContentPane().removeAll();
@@ -185,11 +196,17 @@ public class sopaDeLetras{
 	    	
 	        String nombre = nombreJugador.getText().trim();
 	        
+	       
 	        if (nombre.isEmpty()) {
 	        	JOptionPane.showMessageDialog(frame, "Por favor ingrese un nombre valido");
 	        	iniciarJuego();
 	        } else {
 	           panelJuego(nombre);
+	           puntuacion = 0;
+	           corazones = 3;
+	           actualizarCorazones();
+	           iniciarTemporizador();
+	           
 	        }
 	    }
 	}
@@ -515,7 +532,7 @@ public class sopaDeLetras{
     }
 	
 	private static void iniciarTemporizador() {
-	    segundosTranscurridos = 0;
+		
 	    lblTiempo.setText("Tiempo: 00:00");
 
 	    cronometro = new Timer(1000, e -> {
@@ -703,6 +720,8 @@ public class sopaDeLetras{
 	    String palabra = palabraSeleccionada.toString();
 
 	    if (palabrasNivelActual.contains(palabra)) {
+	    	
+	    	efectoDeSonido("sounds/acierto.wav");
 
 	        for (JLabel lbl : etiquetasSeleccionadas) {
 	            lbl.setBackground(new Color(144, 238, 144));
@@ -721,10 +740,7 @@ public class sopaDeLetras{
 	        palabrasNivelActual.remove(palabra);
 	        
 	        if (palabrasNivelActual.isEmpty()) {
-	            int opcion = JOptionPane.showConfirmDialog(frame,
-	                "¡Felicidades! Completaste este nivel.\n¿Deseas pasar al siguiente nivel?",
-	                "Nivel completado",
-	                JOptionPane.YES_NO_OPTION);
+	            int opcion = JOptionPane.showConfirmDialog(frame,"Ha encontrado las 10 palabras.\n¿Deseas seguir jugando?","Nivel completado",JOptionPane.YES_NO_OPTION);
 
 	            if (opcion == JOptionPane.YES_OPTION) {
 
@@ -738,6 +754,9 @@ public class sopaDeLetras{
 	        
 	        
 	    } else {
+	    	
+	    	efectoDeSonido("sounds/error.wav");
+	    	
 	        for (JLabel lbl : etiquetasSeleccionadas) {
 	            lbl.setBackground(new Color(255, 102, 102));
 	        }
@@ -789,6 +808,23 @@ public class sopaDeLetras{
 	
 	private static boolean dentroDelTablero(int fila, int col) {
 	    return fila >= 0 && fila < tamanoTablero && col >= 0 && col < tamanoTablero;
+	}
+	
+	private static void efectoDeSonido(String rutaSonido) {
+	    if (!sonidoActivado) return;
+
+	    try {
+	        if (clipSonido != null && clipSonido.isRunning()) {
+	            clipSonido.stop();
+	            clipSonido.close();
+	        }
+	        AudioInputStream audioIn = AudioSystem.getAudioInputStream(new File(rutaSonido));
+	        clipSonido = AudioSystem.getClip();
+	        clipSonido.open(audioIn);
+	        clipSonido.start();
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	    }
 	}
 	
 }
